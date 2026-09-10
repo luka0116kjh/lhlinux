@@ -5,16 +5,9 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y --no-install-recommends dbus-user-session libpam-systemd
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+source "$repo/scripts/lib/install.sh"
 cache=/var/cache/lhlinux
 mkdir -p "$cache" /opt/lhlinux
-fetch() {
-  local url=$1 target=$2 hash=$3
-  if [[ ! -f $target ]] || ! echo "$hash  $target" | sha256sum -c --status; then
-    curl -fL --retry 3 -o "$target.part" "$url"
-    echo "$hash  $target.part" | sha256sum -c -
-    mv "$target.part" "$target"
-  fi
-}
 r2base=https://github.com/radareorg/radare2/releases/download/6.2.2
 fetch "$r2base/radare2_6.2.2_amd64.deb" "$cache/radare2.deb" 09234e4139bf8dfcbb7fc1fdb2519859ad516e63c19d3c27d92aaecdf463b1ad
 fetch "$r2base/radare2-dev_6.2.2_amd64.deb" "$cache/radare2-dev.deb" cbc9278e90fde572df7dd721f22056515c8c28f63c2d0c6d44ab321b5f4e6f43
@@ -74,8 +67,8 @@ EOF
   chown admin:admin /home/admin/.config/r2ai/rc
 fi
 runuser -u admin -- python3 -m venv --system-site-packages /home/admin/lab/.venv
-install -o admin -g admin -m644 "$repo/examples/solver.py" /home/admin/lab/solvers/solver.py
-install -o admin -g admin -m644 "$repo/examples/hello.c" /home/admin/lab/samples/hello.c
+install_example "$repo/examples/solver.py" /home/admin/lab/solvers/solver.py admin admin
+install_example "$repo/examples/hello.c" /home/admin/lab/samples/hello.c admin admin
 install -m755 "$repo/scripts/lhlinux-help" /usr/local/bin/lhlinux-help
 install -m755 "$repo/scripts/lhlinux-check" /usr/local/bin/lhlinux-check
 install -m755 "$repo/scripts/lhlinux" /usr/local/bin/lhlinux

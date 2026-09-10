@@ -25,7 +25,8 @@ ai_plain_version() {
 ai_probe() {
   local limiter
   limiter=$(executable_path timeout) || return 1
-  "$limiter" -k 1s 3s "$@" </dev/null 2>/dev/null | head -c 4096
+  # Drain excess output so head does not turn a successful probe into SIGPIPE.
+  "$limiter" -k 1s 3s "$@" </dev/null 2>/dev/null | { head -c 4096; cat >/dev/null; }
 }
 
 ai_detect() {
@@ -69,6 +70,7 @@ ai_detect() {
 ai_ready() {
   [[ -n ${ai_paths[$1]:-} ]] || return 1
   [[ ${ai_execution[$1]} != unavailable ]] || return 1
+  [[ $1 != r2ai || ( -n $ai_radare && ${kinds[r2ai]:-} == plugin ) ]] || return 1
   [[ $1 != local || ${ai_daemons[local]} == reachable ]]
 }
 
@@ -126,6 +128,7 @@ ai_command() {
         [[ ${ai_execution[$provider]} != unavailable ]] || status+=' [execution: unavailable]'
         [[ $provider != local ]] || status+=" [daemon: ${ai_daemons[$provider]}]"
         [[ ${ai_kinds[$provider]} != plugin ]] || status+=' [radare2 plugin]'
+        [[ $provider != r2ai || ${kinds[r2ai]:-} == plugin ]] || status+=' [radare2 plugin required]'
       fi
       if ai_ready "$provider"; then any=true; fi
       printf '[%s] %-12s %s\n' "$mark" "${ai_names[$provider]}" "$status"

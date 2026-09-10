@@ -20,11 +20,15 @@ if (-not $exists) {
     $line = Get-Content -LiteralPath (Join-Path $cache 'SHA256SUMS') | Where-Object { $_ -match ([regex]::Escape($archive) + '$') }
     if (@($line).Count -ne 1) { throw 'Expected one Ubuntu checksum.' }
     $expected = ($line -split '\s+')[0]
-    if (-not (Test-Path -LiteralPath $archivePath)) {
-        & curl.exe -fL --retry 3 --output $archivePath "$baseUrl/$archive"
+    $cacheValid = (Test-Path -LiteralPath $archivePath -PathType Leaf) -and
+        ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -eq $expected)
+    if (-not $cacheValid) {
+        $partialPath = "$archivePath.part"
+        & curl.exe -fL --retry 3 --output $partialPath "$baseUrl/$archive"
         if ($LASTEXITCODE -ne 0) { throw 'Ubuntu download failed.' }
+        if ((Get-FileHash -LiteralPath $partialPath -Algorithm SHA256).Hash -ne $expected) { throw 'Ubuntu checksum mismatch.' }
+        Move-Item -LiteralPath $partialPath -Destination $archivePath -Force
     }
-    if ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -ne $expected) { throw 'Ubuntu checksum mismatch.' }
     & wsl.exe --import $distro $destination $archivePath --version 2
     if ($LASTEXITCODE -ne 0) { throw 'WSL import failed.' }
 }
