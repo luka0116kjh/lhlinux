@@ -30,7 +30,10 @@ def clip(text, limit):
     encoded = text.encode("utf-8")
     if len(encoded) <= limit:
         return text
-    keep = max(0, limit - len(MARKER.encode("utf-8")))
+    marker_bytes = MARKER.encode("utf-8")
+    if limit < len(marker_bytes):
+        return marker_bytes[:max(0, limit)].decode("utf-8", errors="ignore")
+    keep = limit - len(marker_bytes)
     return encoded[:keep].decode("utf-8", errors="ignore") + MARKER
 
 
@@ -97,8 +100,9 @@ def collect(argv, limit, *, line_limit=None, timeout=10, pass_fds=()):
         text = "\n".join(text.splitlines()[:line_limit])
         truncated = True
     if truncated:
-        text = clip(text + MARKER, limit)
-    return text
+        text += MARKER
+    # Replacement characters can expand malformed UTF-8 beyond the raw byte cap.
+    return clip(text, limit)
 
 
 def metadata(fd, display_name):

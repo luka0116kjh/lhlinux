@@ -89,6 +89,26 @@ sys.exit({result_code})
         self.assertFalse(rows[2]["available"])
         self.assertEqual(rows[2]["daemon"], "unreachable")
 
+    def test_standalone_r2ai_is_installed_but_not_available(self):
+        self.provider("r2ai")
+        result = self.run_cli("ai", "check", "--json")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        row = json.loads(result.stdout)["providers"][3]
+        self.assertTrue(row["installed"])
+        self.assertFalse(row["available"])
+        self.assertIn("plugin required", self.run_cli("ai", "check").stdout)
+
+    def test_large_model_listing_does_not_hide_reachable_daemon(self):
+        path = self.provider("ollama")
+        path.write_text(path.read_text().replace(
+            "if sys.argv[1:] == ['list']:\n",
+            "if sys.argv[1:] == ['list']:\n    sys.stdout.write('model\\n' * 100000)\n"))
+        result = self.run_cli("ai", "check", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        row = json.loads(result.stdout)["providers"][2]
+        self.assertEqual(row["daemon"], "reachable")
+        self.assertTrue(row["available"])
+
     def test_hung_version_is_bounded_and_other_providers_checked(self):
         self.provider("codex", delay=10)
         self.provider("claude")
@@ -199,6 +219,17 @@ else:
 
 
 class ContextTests(unittest.TestCase):
+    def test_decoding_invalid_utf8_still_respects_byte_limit(self):
+        text = context.collect(
+            [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff' * 100)"], 128)
+        self.assertLessEqual(len(text.encode("utf-8")), 128)
+        self.assertIn("[truncated]", text)
+
+    def test_clip_respects_even_tiny_budgets(self):
+        for limit in (0, 1, 5, 12, 13, 20):
+            with self.subTest(limit=limit):
+                self.assertLessEqual(len(context.clip("한글" * 100, limit).encode()), limit)
+
     def test_multibyte_budget_preserves_sections_and_marks_truncation(self):
         text = context.assemble("File: test\nSize: 1\nSHA256: hash\n",
                                 [("strings", "한글" * 3000), ("objdump", "A" * 3000)], "질문" * 1000, 2048)

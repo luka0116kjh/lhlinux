@@ -1,5 +1,7 @@
 # lhlinux 0.1
 
+![lhlinux 로고](docs/assets/lhlinux-logo.png)
+
 누구나 설치하고 개선할 수 있는 Ubuntu 24.04 LTS 기반 오픈소스 WSL2 CLI 배포판 프로젝트입니다. Docker, Z3, 바이너리 분석 도구와 로컬 AI를 재설치 가능한 스크립트로 구성합니다. 기본 사용자는 `admin`입니다.
 
 현재 지원 범위는 Windows의 **x86-64 WSL2**입니다. ARM64, 일반 PC 직접 설치, VM 부팅 이미지와 설치 ISO는 아직 지원하지 않습니다.
@@ -73,7 +75,7 @@ lhlinux reversing ask r2ai ./chall
 
 `ai check`는 PATH와 실행 권한을 확인합니다. 버전 조회는 `--version`을 최대 3초 실행하며, 실패하거나 버전을 파악할 수 없으면 설치 상태는 유지하고 `unknown`으로 표시합니다. 실행 파일/런타임 오류(126/127)는 `execution: unavailable`로 표시하고 자동 선택에서 제외합니다. 인증 성공 여부와 결제 상태는 검사하지 않습니다. Ollama의 설치 여부와 데몬 응답(`reachable`/`unreachable`)은 별도로 표시합니다. R2AI 플러그인만 있는 설치도 감지합니다.
 
-`ai providers`는 provider 이름, 상태, 감지 경로, stdin 전달 커맨드를 보여줍니다. 두 명령 모두 `--json`을 지원합니다. JSON의 `installed`는 발견 여부, `available`은 실행 가능 후보 여부이며 인증이나 추론 성공을 보장하지 않습니다. 버전 확인 실패만으로는 설치를 누락으로 취급하지 않습니다. CLI 자체 출력은 기존처럼 색상 없이 출력하므로 `NO_COLOR`와 `--no-color`에서도 같은 형식입니다.
+`ai providers`는 provider 이름, 상태, 감지 경로, stdin 전달 커맨드를 보여줍니다. 두 명령 모두 `--json`을 지원합니다. JSON의 `installed`는 발견 여부, `available`은 실행 가능 후보 여부이며 인증이나 추론 성공을 보장하지 않습니다. R2AI 실행 파일만 있고 로드 가능한 radare2 플러그인이 없으면 `installed: true`, `available: false`이며 텍스트에는 `radare2 plugin required`를 표시합니다. 버전 확인 실패만으로는 설치를 누락으로 취급하지 않습니다. CLI 자체 출력은 기존처럼 색상 없이 출력하므로 `NO_COLOR`와 `--no-color`에서도 같은 형식입니다.
 
 `ask`는 읽을 수 있는 일반 파일만 받으며 대상 파일을 실행하지 않습니다. 파일명·크기·SHA256과 `file`, `strings -n 6`, ELF인 경우 `readelf -h -S -d`, 주요 함수(main/_start) 위주의 `objdump -d` 결과를 Markdown으로 모읍니다. 주요 함수 심볼을 찾을 수 없으면 제한된 앞부분을 사용합니다. 도구가 없거나 10초 안에 끝나지 않으면 stderr에 경고하고 해당 섹션을 생략합니다. 해시 계산도 10초로 제한하며 분석 중 파일이 변경되면 전송을 중단합니다. 현재 저장소에는 `reversing scan`/`analyze`가 구현되어 있지 않으므로 재사용할 기존 결과는 없습니다.
 
@@ -86,7 +88,7 @@ lhlinux reversing ask r2ai ./chall
 | `--strings-limit N` | strings 최대 300줄, 범위 1~1000000 |
 | `--disasm-limit N` | 역어셈블리 최대 32768바이트, 범위 64~10485760 |
 | `--timeout SECONDS` | provider 실행 최대 300초, 범위 1~86400 |
-| `--model MODEL` | `local`의 필수 모델 인자로 그대로 전달; 다른 provider에서는 사용하지 않음 |
+| `--model MODEL` | `local`의 필수 모델 인자로 그대로 전달; 다른 provider에 지정하면 오류 |
 | `--no-color` | 색상 없는 출력 유지 |
 | `--json` | `ai check` / `ai providers`의 JSON 출력 |
 
@@ -145,6 +147,8 @@ radare2 내부에서 `r2ai -h`로 도움말을 확인할 수 있습니다. AI는
 ```
 
 기존 이름이나 대상 폴더는 자동 삭제하지 않습니다. `-Resume`은 패키지/프로젝트 설정을 다시 적용하고 lhlinux를 재시작하므로 lhlinux 안의 작업을 먼저 저장하세요. Ubuntu 기본 배포판 지정은 바꾸지 않습니다.
+
+예제 `~/lab/solvers/solver.py`와 `~/lab/samples/hello.c`는 없는 경우에만 설치합니다. 기존 파일이나 심볼릭 링크는 보존하므로 수정한 예제가 재개 과정에서 덮어써지지 않습니다. 최신 예제 원본은 저장소의 `examples/`에서 확인할 수 있습니다. Ubuntu 다운로드가 중단되었거나 캐시의 체크섬이 다르면 다시 다운로드하고 검증을 통과한 파일만 가져오기에 사용합니다.
 
 초기 개발 버전의 luka 계정이 있는 경우, 모든 lhlinux 세션을 닫고 해당 배포판을 종료한 뒤 재개하세요. 계정과 홈 폴더를 admin으로 이전하며 기존 UID, 파일 및 Python 가상환경 패키지를 유지합니다. 이미 설정된 admin 비밀번호는 재개 과정에서 바꾸지 않습니다.
 
