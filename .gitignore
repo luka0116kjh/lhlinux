@@ -1,0 +1,14 @@
+logs/
+*.tar
+*.tar.gz
+*.vhdx
+*.iso
+*.qcow2
+*.vmdk
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+__pycache__/
+.venv/

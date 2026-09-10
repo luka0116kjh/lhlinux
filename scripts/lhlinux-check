@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cat /etc/lhlinux-release
+for command in docker python3 strings readelf objdump r2 gdb z3 ollama r2ai; do
+  command -v "$command"
+done
+docker version --format '{{.Client.Version}} / {{.Server.Version}}'
+docker compose version
+python3 "$HOME/lab/solvers/solver.py"
+"$HOME/lab/.venv/bin/python" "$HOME/lab/solvers/solver.py"
+r2 -v | head -n1
+r2 -q -c 'r2ai -h' -- 2>&1 | grep 'Usage:'
+systemctl is-active docker ollama
+curl -fsS http://127.0.0.1:11434/api/tags | jq -e '.models | any(.name == "qwen2.5-coder:0.5b")'
+echo 'lhlinux checks passed'

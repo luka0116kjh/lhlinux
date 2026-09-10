@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+tools=(strings readelf objdump gdb radare2 r2ai python3)
+declare -A paths=() kinds=() plugin_versions=()
+
+usage() {
+  printf 'Usage: lhlinux {reversing|ai} <command>\n'
+  reversing_usage
+  printf '  lhlinux ai {check|providers} [--json] [--no-color]\n'
+}
+
+reversing_usage() {
+  printf '  lhlinux reversing {check|list|missing|versions}\n'
+  printf '  lhlinux reversing ask [provider] <target> [options] [-- question]\n'
+  printf '    --dry-run --max-bytes N --strings-limit N --disasm-limit N\n'
+  printf '    --model MODEL (local only) --timeout SECONDS --no-color\n'
+}
+
+load_ai() {
+  local directory
+  directory=$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)
+  LH_LIB_DIR=$directory/lib
+  [[ -f $LH_LIB_DIR/ai.sh ]] || LH_LIB_DIR=$directory/../lib/lhlinux
+  [[ -f $LH_LIB_DIR/ai.sh ]] || { printf '[lhlinux] AI helper is not installed\n' >&2; return 2; }
+  source "$LH_LIB_DIR/ai.sh"
+}
+
+# type -P, like command -v, searches PATH, but only returns external executables.
+executable_path() {
+  local path
+  path=$(type -P -- "$1") || return 1
+  [[ -f $path && -x $path ]] || return 1
+  [[ $path == /* ]] || path=$PWD/$path
+  readlink -f -- "$path" 2>/dev/null || printf '%s\n' "$path"
+}
+
+# Metadata queries are bounded and do not open an analysis target or query an LLM.
+probe() {
+  local limiter
+  limiter=$(type -P timeout) || return 1
+  "$limiter" -k 1s 5s "$@" 2>/dev/null
+}
+
+find_r2ai_plugin() {
+  local radare=$1 json parser path version listing name rest key directory candidate
+  if parser=$(executable_path jq) && \
+      json=$(probe "$radare" -N -q -c Lcj --) && \
+      path=$(printf '%s' "$json" | "$parser" -er '.[] | select(.name == "r2ai") | .path // empty' 2>/dev/null) && \
+      [[ -f $path && -r $path ]]; then
+    paths[r2ai]=$(readlink -f -- "$path" 2>/dev/null || printf '%s' "$path")
+    version=$(printf '%s' "$json" | "$parser" -r '.[] | select(.name == "r2ai") | .version // empty')
+    plugin_versions[r2ai]=$version
+  else
+    # Also support older metadata without a path, and systems without jq.
+    listing=$(probe "$radare" -N -q -c Lc --) || return 1
+    local loaded=false
+    while read -r name rest; do
+      [[ $name != r2ai ]] || loaded=true
+    done <<< "$listing"
+    [[ $loaded == true ]] || return 1
+    for key in R2_USER_PLUGINS R2_LIBR_PLUGINS; do
+      directory=$(probe "$radare" -NNH "$key") || continue
+      [[ -d $directory ]] || continue
+      for candidate in "$directory/r2ai.so" "$directory/core_r2ai.so"; do
+        if [[ -f $candidate && -r $candidate ]]; then
+          paths[r2ai]=$(readlink -f -- "$candidate" 2>/dev/null || printf '%s' "$candidate")
+          break 2
+        fi
+      done
+    done
+    [[ -n ${paths[r2ai]:-} ]] || return 1
+  fi
+  kinds[r2ai]=plugin
+}
+
+discover_tools() {
+  local tool path
+  for tool in "${tools[@]}"; do
+    if path=$(executable_path "$tool"); then
+      paths[$tool]=$path
+      kinds[$tool]=executable
+    elif [[ $tool == radare2 ]] && path=$(executable_path r2); then
+      paths[$tool]=$path
+      kinds[$tool]=executable
+    fi
+  done
+  if [[ -z ${paths[r2ai]:-} && -n ${paths[radare2]:-} ]]; then
+    find_r2ai_plugin "${paths[radare2]}" || true
+  fi
+}
+
+tool_version() {
+  local tool=$1 output flag=--version
+  if [[ ${kinds[$tool]} == plugin ]]; then
+    printf '%s' "${plugin_versions[$tool]:-Version unavailable}"
+    return
+  fi
+  case "$tool" in radare2|r2ai) flag=-v ;; esac
+  if output=$(probe "${paths[$tool]}" "$flag") && [[ -n $output ]]; then
+    printf '%s' "${output%%$'\n'*}"
+  else
+    printf 'Version unavailable'
+  fi
+}
+
+reversing_report() {
+  local action=$1 tool installed=0 total=${#tools[@]} suffix
+  discover_tools
+  printf '[lhlinux] Reversing Tools %s\n\n' "${action^}"
+  for tool in "${tools[@]}"; do
+    if [[ -n ${paths[$tool]:-} ]]; then
+      installed=$((installed + 1))
+      [[ $action != missing ]] || continue
+      suffix=''
+      [[ ${kinds[$tool]} != plugin ]] || suffix=' (radare2 plugin)'
+      if [[ $action == versions ]]; then
+        suffix+=" — $(tool_version "$tool")"
+      fi
+      printf '[✓] %-12s %s%s\n' "$tool" "${paths[$tool]}" "$suffix"
+    else
+      printf '[✗] %-12s Not installed\n' "$tool"
+    fi
+  done
+  printf '\nTotal:     %d\nInstalled: %d / %d\nMissing:   %d / %d\n' \
+    "$total" "$installed" "$total" "$((total - installed))" "$total"
+  [[ $installed == "$total" ]]
+}
+
+if [[ $# == 0 || ${1:-} == --help || ${1:-} == -h ]]; then
+  usage
+  exit 0
+fi
+if [[ $1 == ai ]]; then
+  shift
+  load_ai
+  ai_command "$@"
+  exit $?
+fi
+if [[ $1 == reversing && ( ${2:-} == --help || ${2:-} == -h ) ]]; then
+  reversing_usage
+  exit 0
+fi
+if [[ $1 == reversing && ${2:-} == ask ]]; then
+  shift 2
+  load_ai
+  reversing_ask "$@"
+  exit $?
+fi
+if [[ $# != 2 || $1 != reversing ]]; then
+  usage >&2
+  exit 2
+fi
+case "$2" in
+  list) printf '%s\n' "${tools[@]}" ;;
+  check|missing|versions) reversing_report "$2" ;;
+  *) usage >&2; exit 2 ;;
+esac

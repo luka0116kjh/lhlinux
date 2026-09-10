@@ -1,0 +1,8 @@
+* text=auto
+*.sh text eol=lf
+scripts/lhlinux-* text eol=lf
+scripts/lhlinux text eol=lf
+*.ps1 text eol=crlf
+*.md text eol=lf
+*.py text eol=lf
+*.c text eol=lf

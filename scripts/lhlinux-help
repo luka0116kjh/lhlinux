@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+cat <<'EOF'
+lhlinux 0.1 — CLI analysis workspace
+  lhlinux reversing check     Check reversing tools and their paths
+  lhlinux reversing list      List the seven supported tools
+  lhlinux reversing missing   Show only missing tools
+  lhlinux reversing versions  Show available tool versions
+  lhlinux ai check             Check AI CLIs (also supports --json)
+  lhlinux ai providers         Show provider status and commands
+  lhlinux reversing ask --help Show static-context delivery options
+  lab                         Open ~/lab
+  workon                      Activate Python environment (includes Z3)
+  python3 ~/lab/solvers/solver.py
+  docker run --rm hello-world
+  docker compose version
+  gcc -g -O0 ~/lab/samples/hello.c -o ~/lab/results/hello
+  strings ~/lab/results/hello
+  readelf -h ~/lab/results/hello
+  objdump -d ~/lab/results/hello
+  gdb ~/lab/results/hello
+  r2 ~/lab/results/hello
+  ollama run qwen2.5-coder:0.5b
+  lhlinux-check               Verify installed tools and services
+EOF
