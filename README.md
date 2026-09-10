@@ -1,5 +1,7 @@
 # lhlinux 0.1
 
+한국어 | [English](README.en.md)
+
 ![lhlinux 로고](docs/assets/lhlinux-logo.png)
 
 누구나 설치하고 개선할 수 있는 Ubuntu 24.04 LTS 기반 오픈소스 WSL2 CLI 배포판 프로젝트입니다. Docker, Z3, 바이너리 분석 도구와 로컬 AI를 재설치 가능한 스크립트로 구성합니다. 기본 사용자는 `admin`입니다.
