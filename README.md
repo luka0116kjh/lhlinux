@@ -83,6 +83,8 @@ lhlinux reversing versions
 
 ### AI CLI 연동
 
+**테스트 모드(실험적):** 현재 AI 입력 준비 최적화는 검증 중인 기능입니다. 기본 동작과 샘플 응답은 확인했으며, 실제 CTF 풀이 시간·정답률은 아직 검증하지 않았습니다. `ask`는 실제 AI를 호출하므로 입력만 미리 확인하려면 `--dry-run`을 사용하세요.
+
 ```bash
 lhlinux ai check
 lhlinux ai check --json
@@ -91,6 +93,7 @@ lhlinux reversing ask codex ./chall
 lhlinux reversing ask claude ./chall -- "libc 버전 추정해줘"
 lhlinux reversing ask ./chall --dry-run
 lhlinux reversing ask local ./chall --model qwen2.5-coder:0.5b
+lhlinux reversing ask ./chall --profile compact --dry-run
 lhlinux reversing ask r2ai ./chall
 ```
 
@@ -105,17 +108,22 @@ lhlinux reversing ask r2ai ./chall
 | 옵션 | 기본값 / 동작 |
 | --- | --- |
 | `--dry-run` | provider를 실행하거나 감지하지 않고 프롬프트만 stdout 출력 |
-| `--max-bytes N` | 전체 UTF-8 프롬프트 최대 122880바이트(120KiB), 범위 1024~10485760 |
-| `--strings-limit N` | strings 최대 300줄, 범위 1~1000000 |
-| `--disasm-limit N` | 역어셈블리 최대 32768바이트, 범위 64~10485760 |
+| `--profile auto\|compact\|standard` | 기본 `auto`: local은 compact, 나머지는 standard |
+| `--max-bytes N` | 전체 UTF-8 프롬프트: compact 4096 / standard 122880바이트, 범위 1024~10485760 |
+| `--strings-limit N` | strings: compact 40 / standard 300줄, 범위 1~1000000 |
+| `--disasm-limit N` | 역어셈블리: compact 1024 / standard 32768바이트, 범위 64~10485760 |
 | `--timeout SECONDS` | provider 실행 최대 300초, 범위 1~86400 |
 | `--model MODEL` | `local`의 필수 모델 인자로 그대로 전달; 다른 provider에 지정하면 오류 |
 | `--no-color` | 색상 없는 출력 유지 |
 | `--json` | `ai check` / `ai providers`의 JSON 출력 |
 
-전체 제한에 맞춰 섹션마다 공간을 배분하고 잘린 곳에는 `[truncated]`를 표시합니다. 작은 전체 제한은 개별 섹션 제한보다 먼저 적용될 수 있습니다. 메타데이터조차 들어가지 않는 크기라면 오류로 종료합니다.
+전체 제한에 맞춰 섹션마다 공간을 배분하고, 짧은 섹션에서 남은 공간은 긴 섹션에 재배분합니다. 잘린 곳에는 `[truncated]`를 표시합니다. 작은 전체 제한은 개별 섹션 제한보다 먼저 적용될 수 있습니다. 메타데이터조차 들어가지 않는 크기라면 오류로 종료합니다. 개별 숫자 옵션은 입력 순서와 관계없이 profile 기본값보다 우선합니다.
+
+`compact`는 작은 모델의 첫 정적 요약을 위한 입력량 절감 설정입니다. 세부 내용을 더 보고 싶다면 `--profile standard` 또는 개별 제한을 지정하세요. 4096바이트는 토큰 수와 같지 않으며 모델의 문맥 한도 충족이나 답변 정확도를 보장하지 않습니다. 추론 엔진의 속도나 문제 해결 능력은 바꾸지 않습니다.
 
 provider를 생략하면 codex → claude → local 순서로 선택하고 stderr에 한 줄 알립니다. Ollama는 응답하는 데몬이 있어야 자동 선택됩니다. Ollama CLI는 모델을 필수 인자로 받으므로 `--model`로 사용자가 직접 정합니다. `ollama list`에서 설치된 모델을 확인할 수 있습니다. lhlinux는 모델을 자동 선택하거나 다운로드하지 않습니다. `--dry-run`에는 모델이나 설치된 provider가 필요 없습니다.
+
+`ask`는 지정한 provider만 점검하며, 자동 선택에서는 사용 가능한 첫 후보를 찾으면 추가 점검을 멈춥니다. `ai check`와 `ai providers`는 계속 전체를 검사합니다. 옵션 범위·필수 모델·provider 오류는 대상 내용 수집 전에 확인합니다. `--dry-run`은 provider를 점검하지 않으므로, provider를 생략한 `auto` 미리보기는 standard입니다. 로컬 전달 내용을 미리 보려면 `ask local ./chall --dry-run`을 사용하세요. 실제 전달 시 적용한 profile과 바이트 한도를 stderr에 표시합니다.
 
 각 어댑터는 프롬프트를 argv가 아닌 stdin으로 전달하고 provider stdout/stderr를 그대로 연결합니다. Codex는 읽기 전용 sandbox와 shell/unified-exec 비활성 설정을, Claude는 기본 도구와 MCP를 비활성화한 print 모드를 사용합니다. R2AI는 로드 가능한 radare2 플러그인의 `r2ai -i /dev/stdin`으로 읽으며, standalone REPL에 프롬프트를 입력하지 않습니다. 실행 파일만 있고 플러그인이 없다면 R2AI 전달은 오류로 종료합니다. R2AI 1.4.4는 일부 내부 오류에도 radare2 종료 코드 0을 반환할 수 있습니다. lhlinux는 그 upstream 코드를 변경하지 않습니다.
 

@@ -16,6 +16,7 @@ reversing_usage() {
   printf '  lhlinux reversing ask [provider] <target> [options] [-- question]\n'
   printf '    --dry-run --max-bytes N --strings-limit N --disasm-limit N\n'
   printf '    --model MODEL (local only) --timeout SECONDS --no-color\n'
+  printf '    --profile auto|compact|standard (auto: compact for local)\n'
 }
 
 load_ai() {

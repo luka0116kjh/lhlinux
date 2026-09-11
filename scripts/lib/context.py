@@ -128,13 +128,19 @@ def assemble(header, sections, question, max_bytes):
     intro = header + "\n" + INSTRUCTION + "\n"
     if question:
         sections = [*sections, ("additional question", question)]
-    # Equal initial budgets preserve every available section and its heading.
+    # Give short sections their full space, then share the remainder fairly.
     overhead = sum(len(f"\n### {name}\n\n".encode()) for name, _ in sections)
     available = max_bytes - len(intro.encode()) - overhead
     if available < len(sections) * len(MARKER.encode()):
         raise ValueError("--max-bytes is too small for the metadata and section headings")
-    budget = available // max(1, len(sections))
-    prompt = intro + "".join(f"\n### {name}\n\n{clip(text, budget)}" for name, text in sections)
+    budgets = [0] * len(sections)
+    remaining = available
+    ordered = sorted(range(len(sections)), key=lambda index: len(sections[index][1].encode()))
+    for position, index in enumerate(ordered):
+        budgets[index] = min(len(sections[index][1].encode()), remaining // (len(ordered) - position))
+        remaining -= budgets[index]
+    prompt = intro + "".join(f"\n### {name}\n\n{clip(text, budgets[index])}"
+                              for index, (name, text) in enumerate(sections))
     assert len(prompt.encode("utf-8")) <= max_bytes
     return prompt
 
@@ -182,7 +188,25 @@ def build_context(target, max_bytes=122880, strings_limit=300, disasm_limit=3276
         os.close(fd)
 
 
+def validate_limits(values):
+    max_bytes, strings_limit, disasm_limit, duration = map(int, values)
+    if not (1024 <= max_bytes <= 10 * 1024 * 1024 and 1 <= strings_limit <= 1000000
+            and 64 <= disasm_limit <= 10 * 1024 * 1024 and 1 <= duration <= 86400):
+        raise ValueError("Limits out of range")
+    return max_bytes, strings_limit, disasm_limit, duration
+
+
 def main():
+    if len(sys.argv) < 2:
+        warn("Expected build, validate, or providers-json")
+        return 2
+    if sys.argv[1] == "validate":
+        try:
+            validate_limits(sys.argv[2:])
+            return 0
+        except ValueError:
+            warn("Invalid limits: max-bytes 1024..10485760, strings-limit 1..1000000, disasm-limit 64..10485760, timeout 1..86400")
+            return 2
     if sys.argv[1] == "providers-json":
         values = sys.argv[2:]
         providers = []
@@ -195,9 +219,9 @@ def main():
         return 0
     try:
         target, max_bytes, strings_limit, disasm_limit, duration, question = sys.argv[2:]
-        max_bytes, strings_limit, disasm_limit, duration = map(int, (max_bytes, strings_limit, disasm_limit, duration))
-        if not (1024 <= max_bytes <= 10 * 1024 * 1024 and 1 <= strings_limit <= 1000000
-                and 64 <= disasm_limit <= 10 * 1024 * 1024 and 1 <= duration <= 86400):
+        try:
+            max_bytes, strings_limit, disasm_limit, duration = validate_limits((max_bytes, strings_limit, disasm_limit, duration))
+        except ValueError:
             warn("Invalid limits: max-bytes 1024..10485760, strings-limit 1..1000000, disasm-limit 64..10485760, timeout 1..86400")
             return 2
         prompt = build_context(target, max_bytes, strings_limit, disasm_limit, question)

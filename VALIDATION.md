@@ -1,5 +1,16 @@
 # lhlinux 설치 검증
 
+## AI 입력 준비 최적화 — 테스트 모드 (2026-09-11)
+
+현재 상태는 실험적 테스트 모드입니다. 아래 검증은 입력 준비·전달과 샘플 응답에 한정하며 실제 CTF 풀이 성능 검증은 남아 있습니다.
+
+- Linux unittest 전체 45개 통과. 지정하지 않은 provider와 자동 선택의 후순위 후보를 실행하지 않는지, 잘못된 옵션·모델 누락·미설치 provider에서 컨텍스트 수집을 생략하는지 확인했습니다.
+- local의 자동 compact 적용, standard 선택, provider 없는 compact 미리보기, 명시적 제한의 순서 독립성, 짧은 섹션에서 남는 공간의 재배분을 검증했습니다. 기존 stdin 전달·종료 코드·타임아웃·대상 미실행 테스트도 통과했습니다.
+- Bash 구문 검사와 `git diff --check` 통과. CLI와 AI/context helper를 설치된 lhlinux에 반영했으며, 이전 파일은 `/opt/lhlinux/ai-backup-zfse5sa7`에 백업했습니다.
+- 실제 제공 샘플 `/home/admin/lab/results/hello`의 dry-run 프롬프트는 standard **11721바이트**, compact **4096바이트**였습니다. 다른 파일은 크기와 내용에 따라 결과가 달라집니다.
+- 설치된 Ollama `qwen2.5-coder:0.5b`에 compact로 같은 샘플의 동작 요약을 요청했습니다. 60초 제한 내 **30.923초**, 종료 코드 0으로 응답했고 `main`에서 `puts`로 `Hello from lhlinux`를 출력한다는 설명을 확인했습니다. 응답은 Git 제외 파일 `logs/ai-compact-smoke.txt`에 저장했습니다. 모델 로드 시간을 분리하거나 standard 추론 시간과 비교하지는 않았습니다.
+- 커밋 `84a9cd7` 코드와 수정본을 임시 디렉터리에서 비교했습니다. 선택한 codex는 즉시 응답하고, 선택하지 않은 claude/ollama/r2ai의 버전·목록 조회마다 0.3초 대기하는 mock을 사용했습니다. 실제 AI·네트워크 요청 없이 각 3회 측정한 전달 준비 시간 중앙값은 **1.667초 → 0.820초**였습니다. WSL 실행 비용과 모델 추론을 제외한 인위적 지연 조건의 수치이며 실제 CTF 풀이 속도나 정확도를 측정한 결과는 아닙니다.
+
 ## 터미널 작업 흐름 개선 (2026-09-11)
 
 - Linux Python unittest 전체 40개 통과. 새 workspace 테스트 6개에서 staged/unstaged/untracked 구분, 파일 본문 미포함, 출력 제한, 일반 폴더, 잘못된 경로, 특수문자 경로, 외부 diff/fsmonitor 미실행을 확인했습니다.

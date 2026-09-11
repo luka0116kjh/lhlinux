@@ -217,8 +217,80 @@ else:
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("lhlinux", result.stdout)
 
+    def trap_executable(self, name):
+        marker = self.root / (name + "-called")
+        path = self.bin / name
+        path.write_text(f"#!{sys.executable}\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\nraise SystemExit(99)\n")
+        path.chmod(0o755)
+        return marker
+
+    def verbose_strings(self):
+        path = self.bin / "strings"
+        path.write_text(f"#!{sys.executable}\nprint('ordinary fixture context ' * 4000)\n")
+        path.chmod(0o755)
+
+    def test_ask_does_not_probe_unrelated_or_lower_priority_providers(self):
+        self.provider("codex")
+        markers = [self.trap_executable(name) for name in ("claude", "ollama", "r2", "r2ai")]
+        for selection in (("codex",), ()):
+            with self.subTest(selection=selection):
+                result = self.run_cli("reversing", "ask", *selection, self.target)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(all(not marker.exists() for marker in markers))
+
+    def test_invalid_options_and_missing_provider_skip_context_collection(self):
+        analyzer = self.trap_executable("strings")
+        for options in (("--max-bytes", "0"), ("--profile", "bad"), ()):
+            result = self.run_cli("reversing", "ask", "codex", self.target, *options)
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertFalse(analyzer.exists())
+        provider = self.trap_executable("ollama")
+        result = self.run_cli("reversing", "ask", "local", self.target)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertFalse(provider.exists())
+        self.assertFalse(analyzer.exists())
+
+    def test_local_uses_compact_context_and_standard_is_opt_in(self):
+        self.provider("ollama")
+        self.verbose_strings()
+        for selection in (("local",), ()):
+            result = self.run_cli("reversing", "ask", *selection, self.target, "--model", "fixture:model")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Context profile: compact", result.stderr)
+            self.assertLessEqual(len(json.loads(self.record.read_text())["stdin"].encode()), 4096)
+        result = self.run_cli("reversing", "ask", "local", self.target,
+                              "--model", "fixture:model", "--profile", "standard")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertGreater(len(json.loads(self.record.read_text())["stdin"].encode()), 4096)
+
+    def test_compact_preview_and_explicit_limits_are_order_independent(self):
+        self.verbose_strings()
+        marker = self.trap_executable("ollama")
+        local = self.run_cli("reversing", "ask", "local", self.target, "--dry-run")
+        compact = self.run_cli("reversing", "ask", self.target, "--dry-run", "--profile", "compact")
+        self.assertEqual(local.returncode, 0, local.stderr)
+        self.assertEqual(compact.returncode, 0, compact.stderr)
+        self.assertEqual(local.stdout, compact.stdout)
+        self.assertLessEqual(len(local.stdout.encode()), 4096)
+        self.assertFalse(marker.exists())
+        before = self.run_cli("reversing", "ask", self.target, "--dry-run",
+                             "--max-bytes", "6000", "--profile", "compact")
+        after = self.run_cli("reversing", "ask", self.target, "--dry-run",
+                            "--profile", "compact", "--max-bytes", "6000")
+        self.assertEqual(before.returncode, 0, before.stderr)
+        self.assertEqual(after.returncode, 0, after.stderr)
+        self.assertEqual(before.stdout, after.stdout)
+        self.assertGreater(len(before.stdout.encode()), 4096)
+        self.assertLessEqual(len(before.stdout.encode()), 6000)
+
 
 class ContextTests(unittest.TestCase):
+    def test_unused_short_section_budget_goes_to_long_sections(self):
+        text = context.assemble("File: fixture\n", [("file", "short"), ("strings", "A" * 10000)], "", 2048)
+        self.assertIn("### file\n\nshort", text)
+        self.assertEqual(len(text.encode()), 2048)
+        self.assertIn("[truncated]", text)
+
     def test_decoding_invalid_utf8_still_respects_byte_limit(self):
         text = context.collect(
             [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff' * 100)"], 128)

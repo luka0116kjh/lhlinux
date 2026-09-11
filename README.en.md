@@ -83,6 +83,8 @@ Exit codes are `0` when all tools are installed, `1` when any are missing, and `
 
 ### AI CLI Integration
 
+**Test mode (experimental):** AI input preparation optimizations are under evaluation. Basic behavior and a sample response have been verified; actual CTF solving time and accuracy have not. `ask` makes a real AI request; use `--dry-run` to preview the input only.
+
 ```bash
 lhlinux ai check
 lhlinux ai check --json
@@ -91,6 +93,7 @@ lhlinux reversing ask codex ./chall
 lhlinux reversing ask claude ./chall -- "Estimate the libc version"
 lhlinux reversing ask ./chall --dry-run
 lhlinux reversing ask local ./chall --model qwen2.5-coder:0.5b
+lhlinux reversing ask ./chall --profile compact --dry-run
 lhlinux reversing ask r2ai ./chall
 ```
 
@@ -105,17 +108,22 @@ The prompt requests explanations of static behavior, function roles, and librari
 | Option | Default / Behavior |
 | --- | --- |
 | `--dry-run` | Prints only the prompt to stdout without running or detecting providers |
-| `--max-bytes N` | Maximum total UTF-8 prompt size: 122880 bytes (120 KiB); range: 1024–10485760 |
-| `--strings-limit N` | Maximum strings output: 300 lines; range: 1–1000000 |
-| `--disasm-limit N` | Maximum disassembly size: 32768 bytes; range: 64–10485760 |
+| `--profile auto\|compact\|standard` | Default `auto`: compact for local, standard otherwise |
+| `--max-bytes N` | Total UTF-8 prompt: compact 4096 / standard 122880 bytes; range: 1024–10485760 |
+| `--strings-limit N` | strings: compact 40 / standard 300 lines; range: 1–1000000 |
+| `--disasm-limit N` | Disassembly: compact 1024 / standard 32768 bytes; range: 64–10485760 |
 | `--timeout SECONDS` | Maximum provider runtime: 300 seconds; range: 1–86400 |
 | `--model MODEL` | Passed unchanged as the required model argument for `local`; using it with another provider is an error |
 | `--no-color` | Keeps output uncolored |
 | `--json` | JSON output for `ai check` / `ai providers` |
 
-Space is allocated to each section within the overall limit, and truncated content is marked with `[truncated]`. A small overall limit may take effect before individual section limits. If even the metadata cannot fit, the command exits with an error.
+Space is allocated to each section within the overall limit; unused space from short sections is redistributed to longer sections. Truncated content is marked with `[truncated]`. A small overall limit may take effect before individual section limits. If even the metadata cannot fit, the command exits with an error. Explicit numeric limits override profile defaults regardless of argument order.
+
+`compact` reduces input volume for a small model's initial static summary. Use `--profile standard` or explicit limits when more detail is needed. Bytes are not tokens: a 4096-byte limit does not guarantee a model context fit or answer accuracy. This does not change the inference engine or the model's problem-solving ability.
 
 If no provider is specified, selection proceeds in the order codex → claude → local, with a one-line notice on stderr. Ollama is selected automatically only if its daemon responds. Because the Ollama CLI requires a model argument, you must specify one with `--model`. Use `ollama list` to see installed models. lhlinux does not automatically select or download models. `--dry-run` requires neither a model nor an installed provider.
+
+`ask` probes only the named provider, or stops automatic detection at the first available candidate. `ai check` and `ai providers` still inspect all providers. Option ranges, required model arguments and provider errors are checked before collecting target contents. With no provider named, `--dry-run --profile auto` uses standard without any provider detection; preview local input with `ask local ./chall --dry-run`. Actual delivery reports the effective profile and byte limit on stderr.
 
 Each adapter passes the prompt through stdin rather than argv and forwards provider stdout/stderr unchanged. Codex uses a read-only sandbox with shell/unified-exec disabled. Claude uses print mode with its default tools and MCP disabled. R2AI reads input through the loadable radare2 plugin using `r2ai -i /dev/stdin`; the prompt is not entered into the standalone REPL. If only the executable exists and no plugin is available, forwarding to R2AI fails with an error. R2AI 1.4.4 may return radare2 exit code 0 even for some internal errors. lhlinux does not alter that upstream exit code.
 
