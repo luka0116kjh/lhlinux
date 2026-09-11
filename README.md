@@ -47,6 +47,25 @@ ollama run qwen2.5-coder:0.5b
 
 `workon`은 `~/lab/.venv`를 활성화합니다. 추가 Python 패키지는 이 환경에서 `pip install 패키지명`으로 설치합니다. `deactivate`로 나옵니다.
 
+### 빠른 터미널 작업
+
+PowerShell 7.3 이상에서는 현재 폴더를 유지하면서 Linux 명령을 바로 실행할 수 있습니다. Windows 경로와 Linux 경로를 모두 받습니다.
+
+```powershell
+./scripts/Invoke-Lhlinux.ps1 -Command @('lhlinux', 'workspace', '--json')
+./scripts/Invoke-Lhlinux.ps1 -Command @('rg', '--files')
+./scripts/Invoke-Lhlinux.ps1 -Command @('python3', '-m', 'unittest', 'discover', '-s', 'tests', '-v')
+./scripts/Invoke-Lhlinux.ps1 -Directory /home/admin/lab -Command @('/home/admin/lab/.venv/bin/python3', 'solvers/solver.py')
+```
+
+인자 배열을 셸 해석 없이 전달하고 Linux 종료 코드를 유지합니다. 비대화형 명령용으로 pager·색상 출력을 억제하고 Python 출력을 즉시 내보냅니다. 파이프나 리다이렉션이 필요한 경우 `bash`를 명시적으로 호출하세요. 대화형 작업은 기존 `wsl -d lhlinux --cd ~`를 사용합니다.
+
+Linux에서는 `lhlinux workspace [폴더] [--json]`으로 작업 경로, 기본 개발 도구 경로, 주요 설정 파일 존재 여부, Git 상태와 staged/unstaged 변경 통계를 한 번에 봅니다. Git 조회 3개를 병렬 실행하고 각각 3초·4096바이트·80줄로 제한합니다. 잘린 결과에는 `[truncated]`, 실패한 결과에는 JSON `null`을 표시합니다. 일반 폴더에서도 환경 정보를 출력하며 종료 코드 0, 잘못된 경로는 1, 옵션 오류는 2입니다. 변경 파일 본문·인증 환경변수는 수집하지 않으며 AI 요청을 보내지 않습니다. 파일명과 경로는 출력에 포함되므로 공유 전에 확인하세요. 동시에 파일을 수정하면 섹션별 관측 시점이 다를 수 있습니다.
+
+새 설치와 `-Resume`에는 빠른 파일 검색용 `ripgrep`도 포함됩니다. 저장소에서 설치 전 기능을 확인하려면 `bash scripts/lhlinux workspace --json`을 실행하세요. AI의 반복적인 환경 탐색을 줄이는 저장소 작업 안내는 [AGENTS.md](AGENTS.md)에 있습니다.
+
+파일 접근이 많은 빌드·테스트는 `/mnt/c`보다 `~/lab` 같은 Linux 파일시스템에서 수행하는 편이 유리합니다. [Microsoft WSL 파일 저장 권장 사항](https://learn.microsoft.com/en-us/windows/wsl/filesystems)을 참고하세요. 이 스크립트는 작업 폴더를 자동 이동하거나 복제하지 않습니다.
+
 ### 리버싱 도구 점검
 
 ```bash

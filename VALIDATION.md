@@ -1,5 +1,15 @@
 # lhlinux 설치 검증
 
+## 터미널 작업 흐름 개선 (2026-09-11)
+
+- Linux Python unittest 전체 40개 통과. 새 workspace 테스트 6개에서 staged/unstaged/untracked 구분, 파일 본문 미포함, 출력 제한, 일반 폴더, 잘못된 경로, 특수문자 경로, 외부 diff/fsmonitor 미실행을 확인했습니다.
+- PowerShell 설치 mock 5개, Bash 구문 검사, `git diff --check` 통과.
+- `tests/test_terminal.ps1`을 PowerShell 7.6.5와 실제 lhlinux WSL에서 실행했습니다. 공백·한글·따옴표·빈 문자열·셸 특수문자 인자의 동일성, Windows/Linux 작업 경로, 종료 코드 37 전달을 확인했습니다. 호출자의 native-command 오류 승격 설정이 켜져 있어도 종료 코드를 보존합니다.
+- 실제 lhlinux에 ripgrep 14.1.0을 설치하고 CLI, 도움말, workspace helper와 현재 저장소의 공통 context helper를 반영했습니다. 이전 설치 파일은 `/opt/lhlinux/cli-backup-pnnjdxom`에 백업했습니다.
+- 설치된 `lhlinux workspace --json`의 JSON 파싱과 도구 경로·Git 상태, `rg --files scripts` 실행을 확인했습니다.
+- 현재 `/mnt/c` 저장소에서 workspace 요약을 WSL 내부 Python으로 5회 실행한 중앙값은 **0.266초**, 당시 JSON 출력은 **1372바이트**였습니다. WSL 시작·PowerShell 호출 비용은 제외한 측정이며 이전 구현 대비 배속이나 CTF 풀이 속도를 측정한 수치가 아닙니다.
+- 이번 변경의 새 설치/전체 `-Resume` 실행은 하지 않았습니다. 외부 AI 요청, 서비스 재시작, 사용자 작업 폴더 이동은 수행하지 않았습니다.
+
 검증일: 2026-09-10
 
 별도 WSL2 인스턴스 `lhlinux`를 설치하고 재부팅 후 검사했습니다. 이후 기본 계정을 `admin`으로 이전하고, 다시 시작한 상태에서 `scripts/smoke-test.sh` 전체를 admin으로 재실행했습니다. 종료 코드는 0입니다.

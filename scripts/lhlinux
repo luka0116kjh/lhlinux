@@ -5,9 +5,10 @@ tools=(strings readelf objdump gdb radare2 r2ai python3)
 declare -A paths=() kinds=() plugin_versions=()
 
 usage() {
-  printf 'Usage: lhlinux {reversing|ai} <command>\n'
+  printf 'Usage: lhlinux {reversing|ai|workspace} <command>\n'
   reversing_usage
   printf '  lhlinux ai {check|providers} [--json] [--no-color]\n'
+  printf '  lhlinux workspace [directory] [--json]\n'
 }
 
 reversing_usage() {
@@ -136,6 +137,15 @@ if [[ $1 == ai ]]; then
   load_ai
   ai_command "$@"
   exit $?
+fi
+if [[ $1 == workspace ]]; then
+  shift
+  directory=$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)
+  helper=$directory/lib/workspace.py
+  [[ -f $helper ]] || helper=$directory/../lib/lhlinux/workspace.py
+  [[ -f $helper ]] || { printf '[lhlinux] Workspace helper is not installed\n' >&2; exit 2; }
+  parser=$(executable_path python3) || { printf '[lhlinux] Workspace overview requires python3\n' >&2; exit 2; }
+  exec "$parser" "$helper" "$@"
 fi
 if [[ $1 == reversing && ( ${2:-} == --help || ${2:-} == -h ) ]]; then
   reversing_usage

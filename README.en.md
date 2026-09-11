@@ -47,6 +47,25 @@ ollama run qwen2.5-coder:0.5b
 
 `workon` activates `~/lab/.venv`. Install additional Python packages in this environment with `pip install package-name`. Run `deactivate` to leave it.
 
+### Faster terminal workflow
+
+From PowerShell 7.3+, run Linux commands in the current directory with literal argument arrays:
+
+```powershell
+./scripts/Invoke-Lhlinux.ps1 -Command @('lhlinux', 'workspace', '--json')
+./scripts/Invoke-Lhlinux.ps1 -Command @('rg', '--files')
+./scripts/Invoke-Lhlinux.ps1 -Command @('python3', '-m', 'unittest', 'discover', '-s', 'tests', '-v')
+./scripts/Invoke-Lhlinux.ps1 -Directory /home/admin/lab -Command @('/home/admin/lab/.venv/bin/python3', 'solvers/solver.py')
+```
+
+The wrapper accepts Windows or Linux directories, bypasses shell startup, preserves the Linux exit code, disables paging/color conventions and enables unbuffered Python output. Invoke `bash` explicitly for shell syntax. Use `wsl -d lhlinux --cd ~` for interactive sessions.
+
+`lhlinux workspace [directory] [--json]` reports the directory, development tool paths, entrypoint names, Git status and staged/unstaged diff statistics. Three Git queries run concurrently, each limited to 3 seconds, 4096 bytes and 80 lines. Truncated sections contain `[truncated]`; unavailable sections are JSON `null`. A non-repository directory still returns environment information with exit code 0; invalid paths return 1 and usage errors return 2. No file bodies or authentication environment variables are collected and no AI requests are made. Output includes paths and file names; review it before sharing. Concurrent file edits can produce observations from different instants.
+
+New and resumed installations include `ripgrep`. Before installing the updated CLI, use `bash scripts/lhlinux workspace --json` from the repository. [AGENTS.md](AGENTS.md) records the terminal workflow for future coding tasks.
+
+For file-heavy Linux builds and tests, prefer Linux storage such as `~/lab`; see [Microsoft's WSL file storage guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems). The wrapper does not move or clone your workspace.
+
 ### Checking Reverse Engineering Tools
 
 ```bash

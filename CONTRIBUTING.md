@@ -8,6 +8,8 @@
 
 기본 검사:
 
+PowerShell 7.3 이상에서는 `./tests/test_installer.ps1`로 설치 mock 테스트를 실행합니다. 기존 lhlinux WSL이 있으면 `./tests/test_terminal.ps1`로 실제 인자 전달·경로·종료 코드를 검사할 수 있습니다.
+
 ```bash
 for script in scripts/*.sh scripts/lib/*.sh scripts/lhlinux scripts/lhlinux-check scripts/lhlinux-help; do
   bash -n "$script" || exit

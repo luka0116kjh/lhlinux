@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 cat <<'EOF'
 lhlinux 0.1 — CLI analysis workspace
+  lhlinux workspace           Summarize cwd, tools and Git changes (no AI call)
+  lhlinux workspace --json    Machine-readable workspace overview
   lhlinux reversing check     Check reversing tools and their paths
   lhlinux reversing list      List the seven supported tools
   lhlinux reversing missing   Show only missing tools
