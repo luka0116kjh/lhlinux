@@ -49,6 +49,8 @@ ollama run qwen2.5-coder:0.5b
 
 ### Faster terminal workflow
 
+Use `lhlinux run -- executable arguments...` to save large outputs and record elapsed time and exit codes. Logs default to `~/lab/results/runs`. See the [environment and logging guide](docs/execution-workflow.md) for details and the optional isolated NES development environment.
+
 From PowerShell 7.3+, run Linux commands in the current directory with literal argument arrays:
 
 ```powershell

@@ -6,6 +6,11 @@
 
 관련 원문:
 
+선택적 `setup-nes-env.sh`는 uv 0.12.13, uv가 관리하는 CPython 3.13.15, `nes-py` 9.0.1 및 Python 의존성을 별도로 다운로드합니다. 도구와 패키지 버전·허용 파일 해시는 `environments/uv-requirements.lock`과 `environments/nes-py-9.0.1/requirements.lock`에 있습니다. 패키지별 원문 고지는 각 설치본의 `*.dist-info` 및 해당 배포처를 따릅니다. 이 저장소에는 에뮬레이터 ROM이나 다운로드한 실행 파일을 포함하지 않습니다.
+
+- [uv 설치 및 Python 관리](https://docs.astral.sh/uv/guides/install-python/)
+- [CPython](https://www.python.org/)
+- [nes-py 9.0.1 배포 정보](https://pypi.org/project/nes-py/9.0.1/)
 - [Ubuntu / Canonical 배포 및 상표 정책](https://canonical.com/legal/intellectual-property-policy)
 - [radare2 6.2.2 소스 및 고지](https://github.com/radareorg/radare2/tree/6.2.2)
 - [설치된 R2AI 커밋의 LICENSE](https://github.com/radareorg/r2ai/blob/9f9a3b87ae3318e63fe415ede1d2afe5d17688c0/LICENSE)

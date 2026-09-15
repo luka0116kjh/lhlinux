@@ -49,6 +49,8 @@ ollama run qwen2.5-coder:0.5b
 
 ### 빠른 터미널 작업
 
+명령별 실행 시간·종료 코드와 큰 출력을 보관하려면 `lhlinux run -- 명령 인자...`를 사용합니다. 기본 로그 위치는 `~/lab/results/runs`입니다. NES 개발용 별도 Python 환경과 자세한 사용법은 [실행 환경 및 로그 안내](docs/execution-workflow.md)를 참고하세요.
+
 PowerShell 7.3 이상에서는 현재 폴더를 유지하면서 Linux 명령을 바로 실행할 수 있습니다. Windows 경로와 Linux 경로를 모두 받습니다.
 
 ```powershell
