@@ -8,8 +8,10 @@
 
 기본 검사:
 
+PowerShell 7.3 이상에서는 `./tests/test_installer.ps1`로 설치 mock 테스트를 실행합니다. 기존 lhlinux WSL이 있으면 `./tests/test_terminal.ps1`로 실제 인자 전달·경로·종료 코드를 검사할 수 있습니다.
+
 ```bash
-for script in scripts/*.sh scripts/lib/*.sh scripts/lhlinux scripts/lhlinux-check scripts/lhlinux-help; do
+for script in scripts/*.sh scripts/lib/*.sh scripts/lhlinux scripts/lhlinux-*; do
   bash -n "$script" || exit
 done
 python3 -m unittest discover -s tests -v
@@ -21,6 +23,8 @@ bash scripts/smoke-test.sh
 마지막 검사는 lhlinux의 기본 사용자 admin으로 실행합니다. Docker Hub 접근과 로컬 AI 추론을 수행합니다. PR에는 실제 실행한 검사와 실행하지 못한 검사를 구분해 적어 주세요.
 
 Python 테스트는 Linux/WSL에서 실행하며 Bash, coreutils, Python 3, jq가 필요합니다. 임시 폴더와 모의 CLI를 사용하며 패키지 설치나 외부 AI 요청을 수행하지 않습니다.
+
+선택적 NES 환경은 `bash scripts/setup-nes-env.sh`로 설치하고 `bash scripts/setup-nes-env.sh --check`로 확인합니다. 설치는 Python 및 PyPI 다운로드를 수행합니다. 일반 unittest는 이 설치를 실행하지 않습니다. 패키지를 갱신할 때는 `environments/nes-py-9.0.1/requirements.in`과 해시를 포함한 lock을 함께 갱신하고 재설치·import 검증을 기록하세요.
 
 Windows 설치기의 다운로드·캐시 회귀 검사는 PowerShell에서 실행합니다. `wsl.exe`와 `curl.exe`를 모의 함수로 대체하므로 실제 다운로드나 배포판 가져오기는 수행하지 않습니다.
 

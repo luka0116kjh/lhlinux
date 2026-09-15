@@ -1,0 +1,26 @@
+{
+  "name": "lh",
+  "version": "1.0.0",
+  "description": "한국어 | [English](README.en.md)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luka0116kjh/lhlinux.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/luka0116kjh/lhlinux/issues"
+  },
+  "homepage": "https://github.com/luka0116kjh/lhlinux#readme"
+}

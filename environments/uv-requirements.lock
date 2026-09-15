@@ -1,0 +1,2 @@
+# Linux x86-64 wheel, verified against PyPI release metadata.
+uv==0.12.13 --hash=sha256:5312891392eb5b72eaca9b880e85fe3e706a2b11342e59f7a5cf0304d14d5cc5

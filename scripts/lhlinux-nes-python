@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+environment=$HOME/.local/share/lhlinux/envs/nes-py-9.0.1
+if [[ ! -x $environment/bin/python || ! -f $environment/.lhlinux-managed ||
+      $(cat "$environment/.lhlinux-managed") != lhlinux-nes-v1 ]]; then
+  printf 'Run bash scripts/setup-nes-env.sh from the lhlinux repository first.\n' >&2
+  exit 2
+fi
+# Old --target experiments must not override the isolated environment's packages.
+unset PYTHONHOME PYTHONPATH
+export PYTHONNOUSERSITE=1
+exec "$environment/bin/python" "$@"

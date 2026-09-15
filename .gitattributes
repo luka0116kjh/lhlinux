@@ -6,3 +6,6 @@ scripts/lhlinux text eol=lf
 *.md text eol=lf
 *.py text eol=lf
 *.c text eol=lf
+*.lock text eol=lf
+*.in text eol=lf
+.python-version text eol=lf

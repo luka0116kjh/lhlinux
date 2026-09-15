@@ -30,8 +30,12 @@ ai_probe() {
 }
 
 ai_detect() {
-  local provider path version code
-  for provider in "${ai_providers[@]}"; do
+  local provider path version code detect_plugin=false
+  local candidates=("$@")
+  [[ ${#candidates[@]} != 0 ]] || candidates=("${ai_providers[@]}")
+  for provider in "${candidates[@]}"; do
+    [[ $provider != r2ai ]] || detect_plugin=true
+    unset 'ai_paths[$provider]' 'ai_kinds[$provider]'
     ai_versions[$provider]=unknown
     ai_version_ok[$provider]=false
     ai_daemons[$provider]=not_applicable
@@ -56,8 +60,10 @@ ai_detect() {
       fi
     fi
   done
-  ai_radare=$(executable_path radare2 || executable_path r2) || ai_radare=''
-  if [[ -n $ai_radare ]] && find_r2ai_plugin "$ai_radare"; then
+  if [[ $detect_plugin == true ]]; then
+    ai_radare=$(executable_path radare2 || executable_path r2) || ai_radare=''
+  fi
+  if [[ $detect_plugin == true && -n $ai_radare ]] && find_r2ai_plugin "$ai_radare"; then
     if [[ -z ${ai_paths[r2ai]:-} ]]; then
       ai_paths[r2ai]=${paths[r2ai]}
       ai_kinds[r2ai]=plugin
@@ -150,7 +156,7 @@ ai_command_description() {
 }
 
 reversing_ask() (
-  local provider='' target='' question='' dry=false model='' max_bytes=122880 strings_limit=300 disasm_limit=32768 duration=300
+  local provider='' target='' question='' dry=false model='' max_bytes='' strings_limit='' disasm_limit='' duration=300 profile=auto
   local argument parser temporary limiter result=0
   local positional=() ai_argv=()
   while [[ $# -gt 0 ]]; do
@@ -159,13 +165,14 @@ reversing_ask() (
       --dry-run) dry=true; shift ;;
       --no-color) shift ;;
       --) shift; question="$*"; break ;;
-      --max-bytes|--strings-limit|--disasm-limit|--timeout|--model)
+      --max-bytes|--strings-limit|--disasm-limit|--timeout|--model|--profile)
         [[ $# -ge 2 && -n $2 ]] || { ai_log 'Missing option value'; return 2; }
         argument=$1
-        if [[ $argument != --model && ! $2 =~ ^[0-9]+$ ]]; then ai_log 'Limits must be positive integers'; return 2; fi
+        if [[ $argument != --model && $argument != --profile && ! $2 =~ ^[0-9]+$ ]]; then ai_log 'Limits must be positive integers'; return 2; fi
         case "$argument" in
           --max-bytes) max_bytes=$2 ;; --strings-limit) strings_limit=$2 ;;
           --disasm-limit) disasm_limit=$2 ;; --timeout) duration=$2 ;; --model) model=$2 ;;
+          --profile) profile=$2 ;;
         esac
         shift 2 ;;
       --*) ai_log 'Unknown ask option'; return 2 ;;
@@ -178,8 +185,39 @@ reversing_ask() (
     *) reversing_usage >&2; return 2 ;;
   esac
   case "$provider" in ''|codex|claude|local|r2ai) ;; *) ai_log 'Unknown provider (codex, claude, local, r2ai)'; return 2 ;; esac
+  case "$profile" in auto|compact|standard) ;; *) ai_log 'Unknown profile (auto, compact, standard)'; return 2 ;; esac
   [[ -f $target && -r $target ]] || { ai_log 'Target must be an existing, readable regular file'; return 1; }
   parser=$(executable_path python3) || { ai_log 'Context collection requires python3'; return 2; }
+  "$parser" "$LH_LIB_DIR/context.py" validate "${max_bytes:-122880}" "${strings_limit:-300}" "${disasm_limit:-32768}" "$duration" || return $?
+  if [[ $dry != true ]]; then
+    # Reject explicit model errors before probing CLIs or reading target contents.
+    if [[ $provider == local && -z $model ]]; then ai_log 'Ollama requires --model MODEL; choose an installed model with ollama list.'; return 2; fi
+    if [[ -n $model && ( $model == -* || $model =~ [[:space:]] ) ]]; then ai_log 'Use a model name, not a CLI option or whitespace-separated arguments.'; return 2; fi
+    if [[ -n $provider && $provider != local && -n $model ]]; then ai_log '--model is only for local; configure other models in their own CLI.'; return 2; fi
+    if [[ -n $provider ]]; then
+      ai_detect "$provider"
+    else
+      for argument in codex claude local; do
+        ai_detect "$argument"
+        if ai_ready "$argument"; then provider=$argument; break; fi
+      done
+      [[ -n $provider ]] || { ai_log "No automatic provider (codex/claude/local). Install: ${ai_install_urls[codex]}"; return 2; }
+      ai_log "Selected provider: $provider"
+    fi
+    [[ -n ${ai_paths[$provider]:-} ]] || { ai_log "Provider not installed. Install: ${ai_install_urls[$provider]}"; return 2; }
+    if [[ $provider == local && -z $model ]]; then ai_log 'Ollama requires --model MODEL; choose an installed model with ollama list.'; return 2; fi
+    if [[ $provider != local && -n $model ]]; then ai_log '--model is only for local; configure other models in their own CLI.'; return 2; fi
+    ai_adapter "$provider" "$model" || return $?
+  fi
+  if [[ $profile == auto ]]; then
+    profile=standard
+    [[ $provider != local ]] || profile=compact
+  fi
+  if [[ $profile == compact ]]; then
+    max_bytes=${max_bytes:-4096}; strings_limit=${strings_limit:-40}; disasm_limit=${disasm_limit:-1024}
+  else
+    max_bytes=${max_bytes:-122880}; strings_limit=${strings_limit:-300}; disasm_limit=${disasm_limit:-32768}
+  fi
   # Private storage also makes /dev/stdin seekable for the R2AI plugin adapter.
   umask 077
   temporary=$(mktemp -d) || return 1
@@ -188,19 +226,7 @@ reversing_ask() (
   trap 'exit 143' TERM
   "$parser" "$LH_LIB_DIR/context.py" build "$target" "$max_bytes" "$strings_limit" "$disasm_limit" "$duration" "$question" > "$temporary/prompt" || return $?
   if [[ $dry == true ]]; then cat -- "$temporary/prompt"; return 0; fi
-  ai_detect
-  if [[ -z $provider ]]; then
-    for argument in codex claude local; do
-      if ai_ready "$argument"; then provider=$argument; break; fi
-    done
-    [[ -n $provider ]] || { ai_log "No automatic provider (codex/claude/local). Install: ${ai_install_urls[codex]}"; return 2; }
-    ai_log "Selected provider: $provider"
-  fi
-  [[ -n ${ai_paths[$provider]:-} ]] || { ai_log "Provider not installed. Install: ${ai_install_urls[$provider]}"; return 2; }
-  if [[ $provider == local && -z $model ]]; then ai_log 'Ollama requires --model MODEL; choose an installed model with ollama list.'; return 2; fi
-  if [[ $provider == local && ( $model == -* || $model =~ [[:space:]] ) ]]; then ai_log 'Use a model name, not a CLI option or whitespace-separated arguments.'; return 2; fi
-  if [[ $provider != local && -n $model ]]; then ai_log '--model is only for local; configure other models in their own CLI.'; return 2; fi
-  ai_adapter "$provider" "$model" || return $?
+  ai_log "Context profile: $profile (max $max_bytes bytes)"
   limiter=$(executable_path timeout) || { ai_log 'Provider execution requires coreutils timeout'; return 2; }
   # Do not capture/filter provider stdout or stderr, or inject authentication variables.
   "$limiter" -k 2s "${duration}s" "${ai_argv[@]}" < "$temporary/prompt" || result=$?

@@ -1,5 +1,42 @@
 # lhlinux 설치 검증
 
+## 실행 환경 고정과 출력 기록 (2026-09-11)
+
+- 선택적 환경을 `~/.local/share/lhlinux/envs/nes-py-9.0.1`에 실제 설치했습니다. Python 3.13.15, nes-py 9.0.1, NumPy 2.5.3, Pillow 12.3.0 및 lock의 9개 패키지 버전·import·의존성 검사가 통과했습니다. 설치 도구 uv 0.12.13과 Python 패키지는 고정 버전으로 관리하며 lock에 패키지 파일 해시를 기록했습니다.
+- 같은 setup을 다시 실행하면 `Ready (reused)`로 기존 환경을 재사용하며 다운로드·동기화를 생략함을 확인했습니다. `--check`도 통과했습니다. 관리되지 않은 환경과 심볼릭 링크를 보존하는 테스트 4개를 추가했습니다.
+- `lhlinux run`은 실행당 별도 폴더에 stdout/stderr와 시간·종료 코드·중단 사유를 기록합니다. 출력 합산 한도, 짧은 미리보기, 0700/0600 권한, 인자 기록 기본 생략, literal argv, timeout 시 자식 종료, SIGTERM 결과 저장, 잘못된 Python 환경변수에서의 시작을 테스트했습니다.
+- 최종 Linux unittest **57개 통과 (27.564초)**. PowerShell 설치 mock 5개, 실제 터미널 연동 검사, Bash 구문 검사, `git diff --check`도 통과했습니다. 마지막 테스트 로그는 Git 제외 파일 `logs/workflow-regression-tests.log`입니다.
+- 새 CLI·도움말·run helper·전용 Python wrapper를 설치된 lhlinux에 반영했습니다. 이전 파일은 `/opt/lhlinux/workflow-backup-j40f4hzr`에 백업했습니다. 실제 `lhlinux run --json -- lhlinux-nes-python --version`은 종료 코드 0과 Python 3.13.15 출력을 기록했습니다.
+- 잘못된 `PYTHONHOME`과 이전 `/tmp/nes-tools`가 지정된 `PYTHONPATH`에서도 실행기와 전용 Python의 조합이 정상 동작했습니다. 별도의 가짜 numpy 모듈을 둔 대조 검사에서도 전용 환경의 실제 numpy를 불러왔습니다. 시스템 Python은 3.12.3을 유지했고 기존 `~/lab/.venv`의 Z3 예제도 통과했습니다.
+- 이 설치 검증은 ROM 실행이나 서버 제출을 수행하지 않습니다. 공개 PyPI 패키지와 문제 서버의 사용자 정의 코어·설정 동등성 및 기존 8.x 스크립트 호환성은 미검증입니다. 현재 Codex 세션의 모델·진행 파일·실행 프로세스는 변경하지 않았습니다. 실제 풀이 속도 개선을 측정한 결과가 아닙니다.
+
+사용법과 로그 보관 조건은 [실행 환경 및 로그 안내](docs/execution-workflow.md)에 있습니다.
+
+## 테스트 모드 1차 실측 (2026-09-11)
+
+[상세 시험 보고서](docs/test-mode-report-2026-09-11.md): 기능 테스트 45개와 실제 WSL 연동은 통과했습니다. 그러나 `hello.c` 바이너리 요약은 compact/standard 각 2회 모두 수동 정확도 기준에 미달했습니다. compact 입력에서 `main`의 실제 출력 함수 호출이 잘리는 현상도 확인했습니다. 짧은 C 소스 직접 전달 대조 시험 1회는 정확히 응답했습니다. **테스트 모드를 유지하며, 현재 결과는 CTF 풀이 성능 개선의 근거로 사용하지 않습니다.**
+
+## AI 입력 준비 최적화 — 테스트 모드 (2026-09-11)
+
+현재 상태는 실험적 테스트 모드입니다. 아래 검증은 입력 준비·전달과 샘플 응답에 한정하며 실제 CTF 풀이 성능 검증은 남아 있습니다.
+
+- Linux unittest 전체 45개 통과. 지정하지 않은 provider와 자동 선택의 후순위 후보를 실행하지 않는지, 잘못된 옵션·모델 누락·미설치 provider에서 컨텍스트 수집을 생략하는지 확인했습니다.
+- local의 자동 compact 적용, standard 선택, provider 없는 compact 미리보기, 명시적 제한의 순서 독립성, 짧은 섹션에서 남는 공간의 재배분을 검증했습니다. 기존 stdin 전달·종료 코드·타임아웃·대상 미실행 테스트도 통과했습니다.
+- Bash 구문 검사와 `git diff --check` 통과. CLI와 AI/context helper를 설치된 lhlinux에 반영했으며, 이전 파일은 `/opt/lhlinux/ai-backup-zfse5sa7`에 백업했습니다.
+- 실제 제공 샘플 `/home/admin/lab/results/hello`의 dry-run 프롬프트는 standard **11721바이트**, compact **4096바이트**였습니다. 다른 파일은 크기와 내용에 따라 결과가 달라집니다.
+- 설치된 Ollama `qwen2.5-coder:0.5b`에 compact로 같은 샘플의 동작 요약을 요청했습니다. 60초 제한 내 **30.923초**, 종료 코드 0으로 응답했고 `main`에서 `puts`로 `Hello from lhlinux`를 출력한다는 설명을 확인했습니다. 응답은 Git 제외 파일 `logs/ai-compact-smoke.txt`에 저장했습니다. 모델 로드 시간을 분리하거나 standard 추론 시간과 비교하지는 않았습니다.
+- 커밋 `84a9cd7` 코드와 수정본을 임시 디렉터리에서 비교했습니다. 선택한 codex는 즉시 응답하고, 선택하지 않은 claude/ollama/r2ai의 버전·목록 조회마다 0.3초 대기하는 mock을 사용했습니다. 실제 AI·네트워크 요청 없이 각 3회 측정한 전달 준비 시간 중앙값은 **1.667초 → 0.820초**였습니다. WSL 실행 비용과 모델 추론을 제외한 인위적 지연 조건의 수치이며 실제 CTF 풀이 속도나 정확도를 측정한 결과는 아닙니다.
+
+## 터미널 작업 흐름 개선 (2026-09-11)
+
+- Linux Python unittest 전체 40개 통과. 새 workspace 테스트 6개에서 staged/unstaged/untracked 구분, 파일 본문 미포함, 출력 제한, 일반 폴더, 잘못된 경로, 특수문자 경로, 외부 diff/fsmonitor 미실행을 확인했습니다.
+- PowerShell 설치 mock 5개, Bash 구문 검사, `git diff --check` 통과.
+- `tests/test_terminal.ps1`을 PowerShell 7.6.5와 실제 lhlinux WSL에서 실행했습니다. 공백·한글·따옴표·빈 문자열·셸 특수문자 인자의 동일성, Windows/Linux 작업 경로, 종료 코드 37 전달을 확인했습니다. 호출자의 native-command 오류 승격 설정이 켜져 있어도 종료 코드를 보존합니다.
+- 실제 lhlinux에 ripgrep 14.1.0을 설치하고 CLI, 도움말, workspace helper와 현재 저장소의 공통 context helper를 반영했습니다. 이전 설치 파일은 `/opt/lhlinux/cli-backup-pnnjdxom`에 백업했습니다.
+- 설치된 `lhlinux workspace --json`의 JSON 파싱과 도구 경로·Git 상태, `rg --files scripts` 실행을 확인했습니다.
+- 현재 `/mnt/c` 저장소에서 workspace 요약을 WSL 내부 Python으로 5회 실행한 중앙값은 **0.266초**, 당시 JSON 출력은 **1372바이트**였습니다. WSL 시작·PowerShell 호출 비용은 제외한 측정이며 이전 구현 대비 배속이나 CTF 풀이 속도를 측정한 수치가 아닙니다.
+- 이번 변경의 새 설치/전체 `-Resume` 실행은 하지 않았습니다. 외부 AI 요청, 서비스 재시작, 사용자 작업 폴더 이동은 수행하지 않았습니다.
+
 검증일: 2026-09-10
 
 별도 WSL2 인스턴스 `lhlinux`를 설치하고 재부팅 후 검사했습니다. 이후 기본 계정을 `admin`으로 이전하고, 다시 시작한 상태에서 `scripts/smoke-test.sh` 전체를 admin으로 재실행했습니다. 종료 코드는 0입니다.

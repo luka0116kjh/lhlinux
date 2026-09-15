@@ -3,7 +3,7 @@ set -euo pipefail
 [[ $EUID == 0 ]] || { echo 'Run as root'; exit 1; }
 [[ -f /etc/lhlinux-release ]] || { echo 'Bootstrap lhlinux first'; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
-apt-get install -y --no-install-recommends dbus-user-session libpam-systemd
+apt-get install -y --no-install-recommends dbus-user-session libpam-systemd ripgrep
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 source "$repo/scripts/lib/install.sh"
 cache=/var/cache/lhlinux
@@ -72,8 +72,11 @@ install_example "$repo/examples/hello.c" /home/admin/lab/samples/hello.c admin a
 install -m755 "$repo/scripts/lhlinux-help" /usr/local/bin/lhlinux-help
 install -m755 "$repo/scripts/lhlinux-check" /usr/local/bin/lhlinux-check
 install -m755 "$repo/scripts/lhlinux" /usr/local/bin/lhlinux
+install -m755 "$repo/scripts/lhlinux-nes-python" /usr/local/bin/lhlinux-nes-python
 install -Dm644 "$repo/scripts/lib/ai.sh" /usr/local/lib/lhlinux/ai.sh
 install -Dm644 "$repo/scripts/lib/context.py" /usr/local/lib/lhlinux/context.py
+install -Dm644 "$repo/scripts/lib/workspace.py" /usr/local/lib/lhlinux/workspace.py
+install -Dm644 "$repo/scripts/lib/run.py" /usr/local/lib/lhlinux/run.py
 if ! grep -q '# lhlinux shell' /home/admin/.bashrc; then
   cat >> /home/admin/.bashrc <<'EOF'
 
